@@ -1,0 +1,195 @@
+-- Snowflake
+-- Schema: covid19_epidemiological_data
+-- Table:  JHU_COVID_19.  9,738,292 records.
+--         COVID19 cases confirmed, active, recovered, deaths by region, state, county, date
+-- Table:  KFF_US_ICU_BEDS. 3,142 records. Hospital beds and ICU beds by region, state, county
+-- Table:  JHU_VACCINES. 40,054 records. COVID19 vaccines administered
+-- Table:  Demographics. 3,140 records. State population 
+
+--  Created extract in csv format.  Uploaded csv extract to Tableau Public.
+
+use schema covid19_epidemiological_data;
+
+
+-- Hospitals and ICU Beds By State
+With hosp_icu AS (
+select country_region,
+ISO3166_2 as Statecd, state as statenm,
+sum(hospitals)as num_hospitals,
+sum(icu_beds) as num_icubeds
+from KFF_US_ICU_BEDS
+group by country_region, statecd, statenm
+order by country_region, statecd
+)
+
+-- State population
+, State_pop AS (
+select 'United States' as country_region, state as statecd, sum(total_population) as total_pop
+from demographics
+group by country_region, statecd
+order by country_region, statecd
+)
+
+-- Join hospital and population data
+,hosp_icu_pop AS (
+ select 
+ hosp_icu.country_region as country_region
+,hosp_icu.statecd as statecd
+,hosp_icu.statenm as statenm
+,hosp_icu.num_hospitals as num_hospitals
+,hosp_icu.num_icubeds as num_icubeds
+,state_pop.total_pop as total_state_pop
+from hosp_icu 
+join state_pop 
+on hosp_icu.statecd = state_pop.statecd
+order by  statecd
+) 
+
+
+
+--  COVID19 Cases:  Confirmed, Active, Recovered, Deaths
+--  Breakout Case Type Confirmed and Deaths into new columns
+--  Excluding territories(Guam, US Virgin Islands, Marshall Islands, Puerto Rico, American Samoa, 
+--    Northern Mariana Islands, Federated State of Micronesia)
+--  date range:  1/2/2020 to 3/9/23
+
+--  Micro data. Confirmed cases and deaths
+
+,Cases_det as (
+select 
+province_state 
+,ISO3166_2 as statecd
+,date
+--,case_type, sum(cases) as cases_cumulative
+,coalesce((select sum(cases) from jhu_covid_19 j2 where country_region = 'United States'
+  and case_type= 'Confirmed' and j1.date = j2.date and j1.province_state = j2.province_state),0) as cases_confirmed
+,coalesce((select sum(cases) from jhu_covid_19 j2 where country_region = 'United States'
+  and case_type= 'Deaths' and j1.date = j2.date and j1.province_state = j2.province_state),0) as cases_deaths
+from jhu_covid_19 j1
+where country_region ='United States' and date = '2023-03-09'
+and province_state in (select distinct(state) from KFF_US_ICU_BEDS)
+group by province_state, statecd, date
+order by province_state, date
+)
+
+
+
+-- Macro data for hospital and cases
+--  Join with hospital population data
+, hosp_cases AS (
+select hosp_icu_pop.*
+,cases_confirmed as total_cases_confirmed
+,cases_deaths as total_cases_deaths
+from hosp_icu_pop 
+join cases_det 
+on hosp_icu_pop.statecd = cases_det.statecd
+)
+
+
+--  Vaccincations administered by State
+--  Removed Territories (Guam, US Virgin Islands, Marshall Islands, Puerto Rico, American Samoa, 
+--    Northern Mariana Islands, Federated State of Micronesia)
+--  Removed Government Agencies( i.e. Department of Defense, Veterans Administration, Indian Health Services,
+--    Bureau of Prisons)
+--  Removed June 2020 data due to data anomaly.  
+--  The figure 587,903,405 appears in the doses_admin columns for multiple states skewing totals
+--  date range:  12/10/20 to 9/20/22
+--  Hawaii and West Virginia did not have any data for doses_admin_total and people_total for 9/20/22. 
+
+
+-- Join macro vaccination data with hospital and case data
+
+
+select hosp_cases.*
+,total_doses_admin
+,total_people_recd_dose
+,total_people_2nd_dose
+
+ from hosp_cases
+ join (
+   select
+    province_state
+    ,STABBR AS STATECD
+    ,max(DOSES_ADMIN_TOTAL) AS TOTAL_DOSES_ADMIN
+    ,max(PEOPLE_TOTAL) AS TOTAL_PEOPLE_RECD_DOSE
+    ,max(PEOPLE_TOTAL_2ND_DOSE) AS TOTAL_PEOPLE_2ND_DOSE
+    from JHU_VACCINES
+    where country_region = 'US'
+    and month(date) <> '06' /* June 2022 & 2021 have bad data for some states */
+    and province_state in (select distinct(state) from KFF_US_ICU_BEDS)
+    group by province_state, stabbr
+    ORDER BY statecd
+    ) doses
+  on hosp_cases.statecd = doses.statecd
+
+
+
+-- Macro data for cases
+select
+   statecd
+   ,max(cases_confirmed) as total_cases_confirmed
+   ,max(cases_deaths) as total_cases_deaths
+   from cases_det
+   group by statecd
+   order by statecd
+
+
+-- Check vaccination record count of result set
+select 
+Count(*)
+from JHU_VACCINES
+where country_region = 'US'
+and (date < '2022-06-01' or date > '2022-06-30')
+and province_state in (select distinct(state) from KFF_US_ICU_BEDS);
+
+-- Micro vaccination data
+
+select 
+PROVINCE_STATE
+,stabbr
+,date
+,coalesce(DOSES_ADMIN_TOTAL,0) as doses_admin_total
+--,DOSES_ADMIN_PFIZER 
+--,doSES_ADMIN_JOHNSON_AND_JOHNSON 
+--,DOSES_ADMIN_MODERNA
+--,DOseS_ADMIN_UNASSIGNED 
+--,DOSES_ADMIN_UNKNOWN 
+,coalesce(PEOPLE_TOTAL,0) as people_total
+,coalesce(PEOPLE_TOTAL_2ND_DOSE,0) as total_2nd_dose
+from JHU_VACCINES
+where country_region = 'US' and province_state = 'Oklahoma'
+and (date < '2022-06-01' or date > '2022-06-30')
+--and province_state in (select distinct(state) from KFF_US_ICU_BEDS)
+and date = '2022-09-20'
+ORDER BY PROVINCE_STATE, date;
+
+
+
+select date, province_state, stabbr, people_total, people_total_2nd_dose, doses_admin_total
+from jhu_vaccines
+where date = '2022-09-20' and (people_total is null or people_total_2nd_dose is null or doses_admin_total is null)
+order by date desc
+
+
+
+-- Macro vaccination data
+
+select 
+ province_state
+ ,stabbr as STATECD
+,MAX(DOSES_ADMIN_TOTAL) AS TOTAL_DOSES_ADMIN
+--,MAX(DOSES_ADMIN_PFIZER) AS TOTAL_DOSES_PFIZER
+--,MAX(DOSES_ADMIN_JOHNSON_AND_JOHNSON) AS TOTAL_DOSES_JNJ
+--,MAX(DOSES_ADMIN_MODERNA) AS TOTAL_DOSES_MODERNA
+--,MAX(DOSES_ADMIN_UNASSIGNED) AS TOTAL_DOSES_UNASSIGNED
+--,MAX(DOSES_ADMIN_UNKNOWN) AS TOTAL_DOSES_UNKNOWN
+,MAX(PEOPLE_TOTAL) AS TOTAL_PEOPLE_ONE_DOSE
+,MAX(PEOPLE_TOTAL_2ND_DOSE) AS TOTAL_PEOPLE_2ND_DOSE
+from JHU_VACCINES
+where country_region = 'US' 
+--and (date < '2022-06-01' or date > '2022-06-30') 
+and month(date) <> '06'
+and stabbr in ('OK', 'HI', 'WV')
+--and (province_state in (select distinct(state) from KFF_US_ICU_BEDS))
+group by province_state, stabbr
+ORDER BY statecd
