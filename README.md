@@ -8,3 +8,8 @@ The following tasks were performed:
 - Removed data for the month of June.  June data in two years had abnormal values 
 - Although the figures were cumulative used max() to obtain data values because Hawaii and West Virginia were missing data values
 - Created separate columns for two data values in field Cases
+
+SQL
+(https://github.com/Sarah269/Data-Cleaning-COVID19/blob/main/Snowflake%20COVID19%20060423.txt)
+
+Dashboard
