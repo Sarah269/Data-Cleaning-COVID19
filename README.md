@@ -10,6 +10,8 @@ The following tasks were performed:
 - Created separate columns for two data values in field Cases
 
 SQL
-(https://github.com/Sarah269/Data-Cleaning-COVID19/blob/main/Snowflake%20COVID19%20060423.txt)
+- [Data Cleaning  & Aggregation SQL](https://github.com/Sarah269/Data-Cleaning-COVID19/blob/main/Snowflake%20COVID19%20060423.txt)
 
 Dashboard
+- [US COVID-19 Dashboard](https://public.tableau.com/views/Sample_16857372916990/Dashboard1?:language=en-US&:display_count=n&:origin=viz_share_link)
+
