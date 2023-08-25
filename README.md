@@ -1,4 +1,4 @@
-# Data-Cleaning-COVID19
+# Data Analysis -COVID19
 
 Snowflake COVID19-epidemiological data.
 
