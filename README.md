@@ -1,6 +1,13 @@
 # Data Analysis -COVID19
 
 Snowflake COVID19-epidemiological data.
+- Snowflake
+- Schema: covid19_epidemiological_data
+- Table:  JHU_COVID_19.  9,738,292 records.
+  -  COVID19 cases confirmed, active, recovered, deaths by region, state, county, date
+- Table:  KFF_US_ICU_BEDS. 3,142 records. Hospital beds and ICU beds by region, state, county
+- Table:  JHU_VACCINES. 40,054 records. COVID19 vaccines administered
+- Table:  Demographics. 3,140 records. State population 
 
 The following tasks were performed:
 - Removed U.S. territories
@@ -8,6 +15,7 @@ The following tasks were performed:
 - Removed data for the month of June.  June data in two years had abnormal values 
 - Although the figures were cumulative used max() to obtain data values because Hawaii and West Virginia were missing data values
 - Created separate columns for two data values in field Cases
+- Aggregated data and joined tables to create csv extract for Tableau
 
 Observations:
 - Tennesee is the only state to place in the top 5 for number of cases and deaths as a percentage of population.
