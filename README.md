@@ -9,6 +9,8 @@ Snowflake COVID19-epidemiological data.
 - Table:  JHU_VACCINES. 40,054 records. COVID19 vaccines administered
 - Table:  Demographics. 3,140 records. State population 
 
+![Dashboard](https://github.com/Sarah269/Data-Cleaning-COVID19/blob/main/COVID19Dashboard.png)
+
 The following tasks were performed:
 - Removed U.S. territories
 - Removed government agencies
